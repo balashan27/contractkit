@@ -49,8 +49,6 @@ import {
   buildOpenApiFromOperations,
   extractOperationsByTag,
   fieldsToPayload,
-  generateAngularServices,
-  generateSpringControllers,
   GeneratorOperation,
   parseOpenApiFromText,
   stringifyYaml
