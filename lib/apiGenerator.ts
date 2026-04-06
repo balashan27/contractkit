@@ -263,17 +263,20 @@ export const extractOperationsByTag = (doc: OpenApiDocument): GeneratorOperation
 };
 
 const fieldSchema = (field: SchemaField) => {
-  if (field.isArray) {
+  const normalizedType = field.type === "array" ? "object" : field.type;
+  const isArraySchema = Boolean(field.isArray) || field.type === "array";
+
+  if (isArraySchema) {
     return {
       type: "array",
       items: {
-        type: field.type
+        type: normalizedType
       }
     };
   }
 
   return {
-    type: field.type
+    type: normalizedType
   };
 };
 

@@ -2,6 +2,14 @@ import YAML from "yaml";
 
 import { EndpointContract, PrimitiveSchemaType, SchemaField } from "@/lib/types";
 
+const toNonArrayType = (type: PrimitiveSchemaType): Exclude<PrimitiveSchemaType, "array"> => {
+  if (type === "array") {
+    return "object";
+  }
+
+  return type;
+};
+
 const parseSampleValue = (value: string, type: PrimitiveSchemaType): unknown => {
   if (type === "object") {
     if (!value.trim()) {
@@ -61,13 +69,16 @@ const toProperties = (fields: SchemaField[]) => {
       return;
     }
 
-    if (field.isArray) {
+    const isArraySchema = Boolean(field.isArray) || field.type === "array";
+    const normalizedType = toNonArrayType(field.type);
+
+    if (isArraySchema) {
       properties[field.fieldName.trim()] = {
         type: "array",
         items: {
-          type: field.type
+          type: normalizedType
         },
-        example: parseArraySample(field.sampleValue, field.type)
+        example: parseArraySample(field.sampleValue, normalizedType)
       };
       return;
     }
@@ -79,6 +90,10 @@ const toProperties = (fields: SchemaField[]) => {
   });
 
   return properties;
+};
+
+const extractPathParameterNames = (path: string) => {
+  return Array.from(path.matchAll(/\{([^}]+)\}/g)).map((match) => match[1]);
 };
 
 export const createOpenApiDocument = (
@@ -97,6 +112,14 @@ export const createOpenApiDocument = (
     const methodKey = endpoint.method.toLowerCase();
     const requestProperties = toProperties(endpoint.requestFields);
     const responseProperties = toProperties(endpoint.responseFields);
+    const pathParameters = extractPathParameterNames(endpoint.path).map((name) => ({
+      name,
+      in: "path",
+      required: true,
+      schema: {
+        type: "string"
+      }
+    }));
 
     if (!paths[endpoint.path]) {
       paths[endpoint.path] = {};
@@ -104,6 +127,7 @@ export const createOpenApiDocument = (
 
     paths[endpoint.path][methodKey] = {
       summary: endpoint.endpointName || `${endpoint.method} ${endpoint.path}`,
+      ...(pathParameters.length ? { parameters: pathParameters } : {}),
       ...(Object.keys(requestProperties).length
         ? {
             requestBody: {
